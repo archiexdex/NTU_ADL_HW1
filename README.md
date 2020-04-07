@@ -30,15 +30,14 @@ Here is the example structure of data
 * * * test.pickle
 * * * embedding.pickle
 * * * config.json
-* * * id2token.json
 
 ```bash
-# for prepare the seq_tag data
+# for preparing the seq_tag data
 python3.6 src/preprocess_seq_tag.py datasets/seq_tag/ --train=1
 # for extrative
 python3.6 src/extrative_train.py
 
-# for prepare the seq2seq data
+# for preparing the seq2seq data
 python3.6 src/preprocess_seq2seq.py datasets/seq2seq/ --train=1
 # for seq2seq
 python3.6 src/train.py --isatt=0 --no=0
@@ -49,5 +48,5 @@ python3.6 src/train.py --isatt=1 --no=1
 ## How to plot the figures
 ```bash
 python3.6 ./src/plot.py --raw_data="./data/valid.jsonl" --result_data="./predict_tag.jsonl"
-# it will output histogram.png on ./histogram.png
+# it will output histogram.png on ./ like ./histogram.png
 ```

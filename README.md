@@ -45,6 +45,7 @@ python3.6 src/train.py --isatt=0 --no=0
 python3.6 src/train.py --isatt=1 --no=1
 ```
 
+![image](https://github.com/archiexdex/NTU_ADL_HW1/blob/master/imgs/histogram.png)
 ## How to plot the figures
 ```bash
 python3.6 ./src/plot.py --raw_data="./data/valid.jsonl" --result_data="./predict_tag.jsonl"

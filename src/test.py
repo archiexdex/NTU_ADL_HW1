@@ -13,10 +13,21 @@ from torch.utils.data import DataLoader
 from dataset import SeqTaggingDataset
 from model import Model
 
+parser = argparse.ArgumentParser()
+parser.add_argument("test_data_path", type=str, help="the path of test data file")
+parser.add_argument("store_path", type=str, help="the path of saving file")
+parser.add_argument("--isatt", type=int, default=1)
+parser.add_argument("--no", type=int, default=0)
+parser.add_argument("--load_model_path", type=str, default="./datasets/seq2seq/ckpt/model_0")
+
+args = parser.parse_args()
+
+isatt = True if args.isatt > 0 else False 
+
 st_time = datetime.now()
 
 hparams = Namespace(**{
-    'no': 0,
+    'no': args.no,
     "model": "seq2seq",
     'mode': "test",
 
@@ -44,17 +55,17 @@ hparams = Namespace(**{
     'teacher_forcing_ratio': 0,
     'n_layers': 1,
     'dropout': 0.5,
-    'attention': True,
+    'attention': isatt,
     # 'attention': False,
     'isbidir': True,
 
     'ckpt_dir': "datasets/seq2seq/ckpt",
-    'load_model_path': "datasets/seq2seq/ckpt/model_0",
+    'load_model_path': args.load_model_path #"datasets/seq2seq/ckpt/model_0",
     'predict_path': "datasets/seq2seq/predict.jsonl"
 })
 
 # with open(hparams.test_dataset_path, 'rb') as fp:
-with open(hparams.valid_dataset_path, 'rb') as fp:
+with open(args.test_data_path, 'rb') as fp:
     dataset = pickle.load(fp)
 
 
@@ -80,7 +91,7 @@ for predict in predicts:
     }
     results.append(res)
 
-with open(hparams.predict_path, 'w') as fp:
+with open(args.store_path, 'w') as fp:
     for result in results:
         s = json.dumps(result)
         fp.write(f"{s}\n")

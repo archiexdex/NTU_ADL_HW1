@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 import json
 from datetime import datetime
+import argparse
 from argparse import Namespace
 from tqdm import tqdm
 
@@ -11,10 +12,19 @@ from torch.utils.data import DataLoader
 from dataset import SeqTaggingDataset
 from model import Model
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--isatt", type=int, default=1)
+parser.add_argument("--no", type=int, default=0)
+parser.add_argument("--load_model_path", type=str, default="./datasets/seq2seq/ckpt/model_0")
+
+args = parser.parse_args()
+
+isatt = True if args.isatt > 0 else False 
+
 st_time = datetime.now()
 
 hparams = Namespace(**{
-    'no': 0,
+    'no': args.no,
     "model": "seq2seq",
     'mode': "train",
 
@@ -31,18 +41,17 @@ hparams = Namespace(**{
     'ignore_idx': -100,
 
     'total_epoch': 100,
-    'batch_size': 32,
+    'batch_size': 64,
     'device': torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
     'learning_rate': 1e-3,
     'early_stop_epoch': 5,
     
     'pos_weight': 1,
-    'rnn_hidden_size': 128,
+    'rnn_hidden_size': 256,
     'teacher_forcing_ratio': 1,
     'n_layers': 1,
     'dropout': 0.5,
-    'attention': True,
-    # 'attention': False,
+    'attention': isatt,
     'isbidir': True,
 
     'ckpt_dir': "datasets/seq2seq/ckpt",

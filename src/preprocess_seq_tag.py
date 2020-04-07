@@ -129,6 +129,7 @@ def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('output_dir', type=Path)
     parser.add_argument('input_data', type=Path)
+    parser.add_argument('--train', type=int, default=0)
     args = parser.parse_args()
     return args
 
@@ -138,4 +139,8 @@ if __name__ == '__main__':
     loglevel = os.environ.get('LOGLEVEL', 'INFO').upper()
     logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s',
                         level=loglevel, datefmt='%Y-%m-%d %H:%M:%S')
-    main(args)
+    
+    if args.train == 0:
+        main(args)
+    else:
+        mainTrain(args)

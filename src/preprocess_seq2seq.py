@@ -9,7 +9,7 @@ from dataset import Seq2SeqDataset
 from tqdm import tqdm
 
 
-def main(args):
+def mainTrain(args):
     with open(args.output_dir / 'config.json') as f:
         config = json.load(f)
 
@@ -93,11 +93,31 @@ def create_seq2seq_dataset(samples, save_path, config, padding=0):
     with open(save_path, 'wb') as f:
         pickle.dump(dataset, f)
 
+def main(args):
+
+    with open(args.output_dir / 'config.json', 'r') as f:
+        config = json.load(f)
+
+    with open(args.input_data) as f:
+        test = [json.loads(line) for line in f]
+    
+    with open(os.path.join(args.output_dir, "embedding.pkl"), 'rb') as f:
+        embedding = pickle.load(f)
+        
+    tokenizer = Tokenizer(lower=True)
+    tokenizer.set_vocab(embedding.vocab)
+
+    logging.info('Creating test dataset...')
+    create_seq_tag_dataset(
+        process_seq_tag_samples(tokenizer, test),
+        args.output_dir / 'test_tag.pkl', config,
+        tokenizer.pad_token_id
+    )
 
 def _parse_args():
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument('output_dir', type=Path,
-                        help='')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('output_dir', type=Path)
+    parser.add_argument('input_data', type=Path)
     args = parser.parse_args()
     return args
 

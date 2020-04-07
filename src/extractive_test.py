@@ -3,6 +3,7 @@ import pickle
 import numpy as np
 import json
 from datetime import datetime
+import argparse
 from argparse import Namespace
 from tqdm import tqdm
 
@@ -12,6 +13,11 @@ from dataset import SeqTaggingDataset
 from model import Model
 
 st_time = datetime.now()
+
+parser = argparse.ArgumentParser()
+parser.add_argument("test_data_path", type=str, help="the path of test data file")
+parser.add_argument("store_path", type=str, help="the path of saving file")
+args = parser.parse_args()
 
 hparams = Namespace(**{
     'no': 0,
@@ -41,7 +47,7 @@ hparams = Namespace(**{
     'early_stop_epoch': 5,
     
     'pos_weight': 1,
-    'rnn_hidden_size': 512,
+    'rnn_hidden_size': 256,
     'teacher_forcing_ratio': 1,
     'n_layers': 2,
     'dropout': 0.5,
@@ -54,15 +60,10 @@ hparams = Namespace(**{
     'predict_path': "datasets/seq_tag/predict.jsonl"
 })
 
-# with open(hparams.test_dataset_path, 'rb') as fp:
-with open(hparams.valid_dataset_path, 'rb') as fp:
+
+# with open(hparams.valid_dataset_path, 'rb') as fp:
+with open(args.test_data_path, 'rb') as fp:
     dataset = pickle.load(fp)
-
-# with open(hparams.test_rawdata_path) as f:
-with open(hparams.valid_rawdata_path) as f:
-    ref = [json.loads(line) for line in f]
-    ref = {a['id']: a["sent_bounds"] for a in ref}
-
 
 dataLoader = DataLoader(dataset, hparams.batch_size, shuffle=False,  collate_fn=dataset.collate_fn)
 
@@ -70,15 +71,9 @@ model = Model(hparams)
 model.load(hparams.load_model_path)
 
 st_time = datetime.now()
-ptr_results = model.predict(dataLoader)
-results = []
-for ptr in ptr_results:
-    results.append({
-        "id": ptr["id"],
-        "predict_sentence_index": ref[ptr["id"]][ptr["ptr"]]
-    })
+results = model.predict(dataLoader, .4)
 
-with open(hparams.predict_path, 'w') as fp:
+with open(args.store_path, 'w') as fp:
     for result in results:
         s = json.dumps(result)
         fp.write(f"{s}\n")

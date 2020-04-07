@@ -23,7 +23,8 @@ class Model:
         if hparams.mode == "train":
             # self.net.apply(self.init_weights)
             if hparams.model == "seq_tag":
-                self.criterion = nn.BCEWithLogitsLoss(reduction='none', pos_weight=torch.tensor(hparams.pos_weight)).to(self.device)
+                # self.criterion = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(hparams.pos_weight)).to(self.device)
+                self.criterion = nn.BCEWithLogitsLoss(reduction='mean', pos_weight=torch.tensor(hparams.pos_weight)).to(self.device)
             elif hparams.model == "seq2seq":
                 self.criterion = nn.CrossEntropyLoss(ignore_index = 0).to(self.device)
             self.optim = optim.Adam(self.net.parameters(), lr=hparams.learning_rate)
@@ -96,7 +97,7 @@ class Model:
                 })
         return ans            
 
-    def predict(self, dataloader):
+    def predict(self, dataloader, threshold=0.5):
         self.net.eval()
         bound_ans = []
         for data in tqdm(dataloader):
@@ -106,19 +107,17 @@ class Model:
             predict = self.net(text).squeeze(-1)
             
             for idx, bound_list in enumerate(bounds):
-                bounds_mean_list = []
-                for bound in bound_list:
-                    predict_mean = torch.mean(predict[idx][bound[0]:bound[1]])
-                    bounds_mean_list.append(predict_mean)
-                ans = np.argmax(bounds_mean_list)
+                ans_list = []
+                for j, bound in enumerate(bound_list):
+
+                    predict_list = predict[idx][bound[0]:bound[1]]
+                    ratio = torch.sum(predict_list[predict_list>0.5])/(bound[1]-bound[0])
+                    if ratio > threshold:
+                        ans_list.append(j)
                 bound_ans.append({
                     "id": no[idx],
-                    "ptr": ans
+                    "predict_sentence_index": ans_list
                 })
-                # bound_ans.append({
-                #     "id": no[idx],
-                #     "predict_sentence_index": bound_list[ans]
-                # })
         return bound_ans
 
     def _get_loss(self, predict, label):
@@ -164,7 +163,8 @@ class Encoder(nn.Module):
         if n_layers == 1:
             self.rnn = nn.GRU(embed_size, hidden_size, batch_first=True, bidirectional=isbidir)
         else:
-            self.rnn = nn.GRU(embed_size, hidden_size, n_layers, dropout=dropout, batch_first=True, bidirectional=isbidir)
+            self.rnn = nn.GRU(embed_size, hidden_size, n_layers, batch_first=True, bidirectional=isbidir)
+            # self.rnn = nn.GRU(embed_size, hidden_size, n_layers, dropout=dropout, batch_first=True, bidirectional=isbidir)
         
 
     def forward(self, idxs) -> Tuple[torch.tensor, torch.tensor]:
@@ -180,15 +180,21 @@ class SeqTagger(nn.Module):
         self.model = hparams.model
         self.encoder = Encoder(hparams.embedding_path, hparams.embed_size, hparams.rnn_hidden_size, hparams.n_layers, hparams.dropout, hparams.isbidir)
         if hparams.isbidir:
-            self.fc = nn.Linear(hparams.rnn_hidden_size * 2, 1)
+            self.fc1 = nn.Linear(hparams.rnn_hidden_size * 2, hparams.rnn_hidden_size)
+            self.fc2 = nn.Linear(hparams.rnn_hidden_size, hparams.rnn_hidden_size // 2)
+            self.fc3 = nn.Linear(hparams.rnn_hidden_size // 2, 1)
         else:
-            self.fc = nn.Linear(hparams.rnn_hidden_size, 1)
+            self.fc1 = nn.Linear(hparams.rnn_hidden_size, hparams.rnn_hidden_size)
+            self.fc2 = nn.Linear(hparams.rnn_hidden_size, hparams.rnn_hidden_size // 2)
+            self.fc3 = nn.Linear(hparams.rnn_hidden_size // 2, 1)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, idxs) -> torch.tensor:
         logits, states = self.encoder(idxs)
-        logits = self.fc(logits)
-        logits = self.sigmoid(logits)
+        logits = self.fc1(logits)
+        logits = self.fc2(logits)
+        logits = self.fc3(logits)
+        # logits = self.sigmoid(logits)
         return logits    
 
 class Decoder(nn.Module):
@@ -211,11 +217,14 @@ class Decoder(nn.Module):
         if n_layers == 1:
             self.rnn = nn.GRU(self.input_size, self.hidden_size, batch_first=True)
         else:
-            self.rnn = nn.GRU(self.input_size, self.hidden_size, n_layers, dropout=dropout, batch_first=True)
+            self.rnn = nn.GRU(self.input_size, self.hidden_size, n_layers, batch_first=True)
+            # self.rnn = nn.GRU(self.input_size, self.hidden_size, n_layers, dropout=dropout, batch_first=True)
         if isatt:
-            self.fc1 = nn.Linear(self.input_size + self.hidden_size, self.voc_size)
+            self.fc1 = nn.Linear(self.input_size + self.hidden_size, self.hidden_size * 2)
+            self.fc2 = nn.Linear(self.hidden_size * 2, self.voc_size)
         else:
-            self.fc1 = nn.Linear(self.hidden_size, self.voc_size)
+            self.fc1 = nn.Linear(self.hidden_size, self.hidden_size * 2)
+            self.fc2 = nn.Linear(self.hidden_size * 2, self.voc_size)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, idxs, hidden, encoder_outputs):
@@ -224,7 +233,8 @@ class Decoder(nn.Module):
         # encoder_outputs = [batch size, src len, hid dim]
         idxs = idxs.unsqueeze(-1)
 
-        embed = self.dropout(self.embedding(idxs))
+        # embed = self.dropout(self.embedding(idxs))
+        embed = self.embedding(idxs)
         
         if self.isatt:
             # attn = [batch size, src len]
@@ -240,7 +250,8 @@ class Decoder(nn.Module):
             # hidden = [num_layers, batch size, hid dim]
 
         # 將 RNN 的輸出轉為每個詞出現的機率
-        prediction = self.fc1(output.squeeze(1))
+        output = self.fc1(output.squeeze(1))
+        prediction = self.fc2(output)
         # output = self.fc2(output)
         # prediction = self.fc3(output)
         # prediction = [batch size, vocab size]

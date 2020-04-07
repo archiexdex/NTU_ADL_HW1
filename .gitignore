@@ -1,5 +1,5 @@
 data*
 *.zip
 *.txt
-predict_tag.jsonl
+*.jsonl
 histogram.png

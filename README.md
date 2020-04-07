@@ -10,9 +10,9 @@ bash ./download.sh
 
 ## Quick Start for Testing
 ```bash
-bash ./extractive.sh ./data/valid.jsonl ./data/predict_tag.jsonl
-bash ./seq2seq.sh    ./data/valid.jsonl ./data/predict_seq.jsonl
-bash ./attention.sh  ./data/valid.jsonl ./data/predict_att.jsonl
+bash ./extractive.sh ./data/valid.jsonl ./predict_tag.jsonl
+bash ./seq2seq.sh    ./data/valid.jsonl ./predict_seq.jsonl
+bash ./attention.sh  ./data/valid.jsonl ./predict_att.jsonl
 ```
 
 ## How to train model
@@ -33,8 +33,13 @@ Here is the example structure of data
 * * * id2token.json
 
 ```bash
+# for prepare the seq_tag data
+python3.6 src/preprocess_seq_tag.py datasets/seq_tag/ --train=1
 # for extrative
 python3.6 src/extrative_train.py
+
+# for prepare the seq2seq data
+python3.6 src/preprocess_seq2seq.py datasets/seq2seq/ --train=1
 # for seq2seq
 python3.6 src/train.py --isatt=0 --no=0
 # for seq2seq + attention

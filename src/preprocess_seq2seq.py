@@ -108,9 +108,9 @@ def main(args):
     tokenizer.set_vocab(embedding.vocab)
 
     logging.info('Creating test dataset...')
-    create_seq_tag_dataset(
-        process_seq_tag_samples(tokenizer, test),
-        args.output_dir / 'test_tag.pkl', config,
+    create_seq2seq_dataset(
+        process_samples(tokenizer, test),
+        args.output_dir / 'test_seq.pkl', config,
         tokenizer.pad_token_id
     )
 
@@ -118,6 +118,7 @@ def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('output_dir', type=Path)
     parser.add_argument('input_data', type=Path)
+    parser.add_argument('--train', type=int, default=0)
     args = parser.parse_args()
     return args
 
@@ -127,4 +128,8 @@ if __name__ == '__main__':
     loglevel = os.environ.get('LOGLEVEL', 'INFO').upper()
     logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s',
                         level=loglevel, datefmt='%Y-%m-%d %H:%M:%S')
-    main(args)
+    
+    if args.train == 0:
+        main(args)
+    else:
+        mainTrain(args)

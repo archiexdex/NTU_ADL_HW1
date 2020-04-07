@@ -51,7 +51,7 @@ hparams = Namespace(**{
     'early_stop_epoch': 5,
     
     'pos_weight': 1,
-    'rnn_hidden_size': 128,
+    'rnn_hidden_size': 256,
     'teacher_forcing_ratio': 0,
     'n_layers': 1,
     'dropout': 0.5,
@@ -60,7 +60,7 @@ hparams = Namespace(**{
     'isbidir': True,
 
     'ckpt_dir': "datasets/seq2seq/ckpt",
-    'load_model_path': args.load_model_path #"datasets/seq2seq/ckpt/model_0",
+    'load_model_path': args.load_model_path, #"datasets/seq2seq/ckpt/model_0",
     'predict_path': "datasets/seq2seq/predict.jsonl"
 })
 

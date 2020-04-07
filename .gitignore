@@ -2,3 +2,4 @@ data*
 *.zip
 *.txt
 predict_tag.jsonl
+histogram.png

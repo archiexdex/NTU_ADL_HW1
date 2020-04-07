@@ -71,7 +71,7 @@ model = Model(hparams)
 model.load(hparams.load_model_path)
 
 st_time = datetime.now()
-results = model.predict(dataLoader, .4)
+results = model.predict(dataLoader, 0)
 
 with open(args.store_path, 'w') as fp:
     for result in results:

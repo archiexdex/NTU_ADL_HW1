@@ -93,7 +93,7 @@ class Model:
                         break
                 ans.append({
                     "id": no[idx],
-                    "predict": predict[:ptr+1]
+                    "predict": predict[:ptr]
                 })
         return ans            
 
@@ -111,7 +111,7 @@ class Model:
                 for j, bound in enumerate(bound_list):
 
                     predict_list = predict[idx][bound[0]:bound[1]]
-                    ratio = torch.sum(predict_list[predict_list>0.5])/(bound[1]-bound[0])
+                    ratio = torch.sum(predict_list[predict_list>0.4])/(bound[1]-bound[0])
                     if ratio > threshold:
                         ans_list.append(j)
                 bound_ans.append({

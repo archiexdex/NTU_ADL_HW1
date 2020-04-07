@@ -43,7 +43,7 @@ def main(args):
     logging.info('Saving id2token.json...')
     with open(os.path.join(args.output_dir, "id2token.json"), "w") as fp:
         json.dump(tokenizer.rdict, fp)
-    exit()
+    
     logging.info('Creating train dataset...')
     create_seq2seq_dataset(
         process_samples(tokenizer, train),

@@ -1,11 +1,6 @@
 # ADL HW1
 
-## How TA Create Testing Environment
-```bash
-bash install_packages.sh
-```
-
-## Set Environment
+## How to set Environment
 ```bash
 # for python environment
 bash ./install_packages.sh

@@ -81,10 +81,20 @@ class Model:
         for data in tqdm(dataloader):
             no = data["id"]
             text = data["text"].to(self.device)
-            _, predict = self.net(text)
-            print(predict.shape)
-            input("@@")
-            
+            _, predicts = self.net(text)
+
+            predicts = predicts.cpu()
+            for idx, predict in enumerate(predicts):
+                ptr = -1
+                for jdx, w in enumerate(predict):
+                    if w == 2:
+                        ptr = jdx
+                        break
+                ans.append({
+                    "id": no[idx],
+                    "predict": predict[:ptr+1]
+                })
+        return ans            
 
     def predict(self, dataloader):
         self.net.eval()
@@ -268,7 +278,7 @@ class Seq2Seq(nn.Module):
             x = target[:, 0] 
         else:
             # x = [<s>]
-            x = torch.ones(batch_size).to(self.device)
+            x = torch.ones(batch_size).long().to(self.device)
         
         preds = []
         max_iter = max_target if max_target > 0 else max_len
@@ -278,11 +288,11 @@ class Seq2Seq(nn.Module):
             outputs[:, t] = output
             teacher_force = random.random() <= teacher_forcing_ratio
             top1 = output.argmax(dim=1)
-            x = top1 if not teacher_force else target[:, t]
+            x = top1 if teacher_force == 0 else target[:, t]
             preds.append(top1.unsqueeze(1))
 
         # append </s>
-        EOS = torch.full_like(x, 2).unsqueeze(1).to(self.device)
+        EOS = torch.full_like(x, 2).long().unsqueeze(1).to(self.device)
         preds.append(EOS)
         preds = torch.cat(preds, 1)
 

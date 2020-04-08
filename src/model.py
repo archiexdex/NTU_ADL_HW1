@@ -18,6 +18,7 @@ class Model:
             self.net = SeqTagger(hparams)
         elif hparams.model == "seq2seq":
             self.net = Seq2Seq(hparams)
+            self.isatt = hparams.attention
         
         self.net.to(self.device)
         if hparams.mode == "train":
@@ -43,7 +44,10 @@ class Model:
             else:
                 text, summary = self._unpack_batch(data)
                 self.optim.zero_grad()
-                predict, _ = self.net(text, summary, self.hparams.teacher_forcing_ratio)
+                if self.isatt:
+                    predict, _, _ = self.net(text, summary, self.hparams.teacher_forcing_ratio)
+                else:
+                    predict, _ = self.net(text, summary, self.hparams.teacher_forcing_ratio)
                 predict = predict[:, 1:].reshape(-1, predict.size(2))
                 summary = summary[:, 1:].reshape(-1)
                 loss = self._get_loss(predict, summary)
@@ -66,7 +70,10 @@ class Model:
                 loss = self._get_loss(predict, label)
             else:
                 text, summary = self._unpack_batch(data)
-                predict, _ = self.net(text, summary, 0)
+                if self.isatt:
+                    predict, _, _ = self.net(text, summary, 0)
+                else:
+                    predict, _ = self.net(text, summary, 0)
                 predict = predict[:, 1:].reshape(-1, predict.size(2))
                 summary = summary[:, 1:].reshape(-1)
                 loss = self._get_loss(predict, summary)
@@ -82,7 +89,10 @@ class Model:
         for data in tqdm(dataloader):
             no = data["id"]
             text = data["text"].to(self.device)
-            _, predicts = self.net(text)
+            if self.isatt:
+                _, predicts, att = self.net(text)
+            else:
+                _, predicts = self.net(text)
 
             predicts = predicts.cpu()
             for idx, predict in enumerate(predicts):
@@ -95,7 +105,7 @@ class Model:
                     "id": no[idx],
                     "predict": predict[:ptr]
                 })
-        return ans            
+        return ans, att        
 
     def predict(self, dataloader, threshold=0.5):
         self.net.eval()
@@ -249,13 +259,15 @@ class Decoder(nn.Module):
             # output = [batch size, 1, hid dim]
             # hidden = [num_layers, batch size, hid dim]
 
-        # 將 RNN 的輸出轉為每個詞出現的機率
         output = self.fc1(output.squeeze(1))
         prediction = self.fc2(output)
         # output = self.fc2(output)
         # prediction = self.fc3(output)
         # prediction = [batch size, vocab size]
-        return prediction, hidden
+        if self.isatt:
+            return prediction, hidden, attn
+        else:
+            return prediction, hidden
 
 class Seq2Seq(nn.Module):
     def __init__(self, hparams):
@@ -277,10 +289,10 @@ class Seq2Seq(nn.Module):
         voc_size   = self.decoder.voc_size
 
         outputs = torch.zeros(batch_size, max_len, voc_size).to(self.device)
-        # 將輸入放入 Encoder
+
         encoder_outputs, hidden = self.encoder(x)
 
-        # hidden =  [num_layers * directions, batch size, hid dim] -> [num_layers, directions, batch size, hid dim] -> [num_layers, batch size, hid dim * 2]
+        # hidden =  [num_layers * directions, batch size, hid dim] -> [num_layers, directions, batch size, hid dim] -> [num_layers, batch size, hid dim * directions]
         hidden = hidden.view(self.encoder.n_layers, 2, batch_size, -1)
         hidden = torch.cat((hidden[:, -2, :, :], hidden[:, -1, :, :]), dim=2)
         hidden = torch.tanh(self.enfc(hidden))
@@ -295,7 +307,10 @@ class Seq2Seq(nn.Module):
         max_iter = max_target if max_target > 0 else max_len
 
         for t in range(1, max_iter):
-            output, hidden = self.decoder(x, hidden, encoder_outputs)
+            if self.isatt:
+                output, hidden, att = self.decoder(x, hidden, encoder_outputs)
+            else:
+                output, hidden = self.decoder(x, hidden, encoder_outputs)
             outputs[:, t] = output
             teacher_force = random.random() <= teacher_forcing_ratio
             top1 = output.argmax(dim=1)
@@ -309,15 +324,18 @@ class Seq2Seq(nn.Module):
 
         if max_target > 0:
             outputs = outputs[:, :max_target]
-        
-        return outputs, preds
+        if self.isatt:
+            return outputs, preds, att
+        else:
+            return outputs, preds
 
 class Attention(nn.Module):
     def __init__(self, hidden_size):
         super().__init__()
         
-        self.attn = nn.Linear((hidden_size * 2) + hidden_size, hidden_size)
-        self.v = nn.Linear(hidden_size, 1, bias=False)
+        # self.attn = nn.Linear((hidden_size * 2) + hidden_size, hidden_size)
+        # self.v = nn.Linear(hidden_size, 1, bias=False)
+        self.attn = nn.Linear((hidden_size * 2) + hidden_size, 1)
         
     def forward(self, encoder_outputs, hidden):
         
@@ -331,6 +349,7 @@ class Attention(nn.Module):
             hidden = hidden[0]
         else:
             hidden = hidden[0] + hidden[1]
+            # hidden = torch.cat((hidden[0], hidden[1]), dim=-1)
         #hidden = [num_layers, batch size, hid dim] -> [batch size, hid dim]
 
         hidden = hidden.unsqueeze(1).repeat(1, src_len, 1)
@@ -338,10 +357,11 @@ class Attention(nn.Module):
         #hidden = [batch size, src len, hid dim]
         #encoder_outputs = [batch size, src len, hid dim * 2]
 
-        energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=-1))) 
+        # energy = torch.tanh(self.attn(torch.cat((hidden, encoder_outputs), dim=-1))) 
         #energy = [batch size, src len, hid dim]
 
-        attention = self.v(energy).squeeze(-1)
+        # attention = self.v(energy).squeeze(-1)
+        attention = self.attn(torch.cat((hidden, encoder_outputs), dim=-1)).squeeze(-1)
         #attention= [batch size, src len]
 
         return F.softmax(attention, dim=-1)
